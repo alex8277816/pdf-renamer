@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 批次改名工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 font-sans pb-12">
+    <div class="max-w-4xl mx-auto p-10 text-center text-slate-600">
+        <h1 class="text-2xl font-bold mb-4">準備就緒！</h1>
+        <p>請將我們稍早確認過的「完整版程式碼」貼在此處並存檔，再進行部署。</p>
+        <p class="mt-4 text-sm text-indigo-500">（確保檔名為 index.html）</p>
+    </div>
+</body>
+</html>
