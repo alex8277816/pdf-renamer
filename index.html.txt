@@ -8,115 +8,86 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body class="min-h-screen bg-slate-50 text-slate-800 font-sans pb-12">
-    <div id="root"></div>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 font-sans pb-12">
+    <div id="root"></div>
     <script type="text/babel">
         const { useState, useRef, useCallback } = React;
-        const { UploadCloud, FileText, Download, Trash2, Settings, Archive, RotateCcw, Play, FileEdit, X, Table, GripVertical } = lucide;
+        const { UploadCloud, FileText, Download, Trash2, Settings, Archive, Table, GripVertical, FileEdit, X } = lucide;
 
         function App() {
             const [files, setFiles] = useState([]);
-            const [isDragging, setIsDragging] = useState(false);
-            const [isZipping, setIsZipping] = useState(false);
-            const [confirmClear, setConfirmClear] = useState(false);
-            const [draggedIndex, setDraggedIndex] = useState(null);
-            const [dragOverIndex, setDragOverIndex] = useState(null);
             const [excelStartRow, setExcelStartRow] = useState(2);
-            const [batchOptions, setBatchOptions] = useState({ prefix: '', suffix: '', findText: '', replaceText: '', addNumbering: false, startNumber: 1, separator: '_' });
-            
             const fileInputRef = useRef(null);
             const excelInputRef = useRef(null);
 
-            const handleFiles = useCallback((newFiles) => {
-                const pdfs = Array.from(newFiles).filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
-                if (pdfs.length === 0) return alert("請上傳 PDF 檔案！");
+            const handleFiles = (newFiles) => {
+                const pdfs = Array.from(newFiles).filter(f => f.name.toLowerCase().endsWith('.pdf'));
                 const mappedPdfs = pdfs.map(f => ({
-                    id: crypto.randomUUID(), file: f, originalBaseName: f.name.replace(/\.[^/.]+$/, ""), newBaseName: f.name.replace(/\.[^/.]+$/, ""), selected: true
+                    id: crypto.randomUUID(), file: f, newBaseName: f.name.replace(/\.[^/.]+$/, ""), selected: true
                 }));
                 setFiles(prev => [...prev, ...mappedPdfs]);
-            }, []);
+            };
 
             const handleExcelUpload = async (e) => {
                 const file = e.target.files[0];
-                if (!file || files.length === 0) return alert("請先上傳 PDF！");
+                if (!file) return;
                 const reader = new FileReader();
                 reader.onload = (evt) => {
                     const data = new Uint8Array(evt.target.result);
-                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    const workbook = XLSX.read(data, { type: 'array' });
                     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                     const range = XLSX.utils.decode_range(worksheet['!ref']);
-                    const startIndex = Math.max(0, excelStartRow - 1);
-                    const validDataRows = [];
-
-                    for (let R = startIndex; R <= range.e.r; ++R) {
-                        const rowData = [];
-                        for (let C = range.s.c; C <= range.e.c; ++C) {
+                    const dataRows = [];
+                    for (let R = excelStartRow - 1; R <= range.e.r; R++) {
+                        let rowData = [];
+                        for (let C = range.s.c; C <= range.e.c; C++) {
                             const cell = worksheet[XLSX.utils.encode_cell({ c: C, r: R })];
-                            if (!cell || cell.v === undefined || cell.v === null || cell.v === '') continue;
-                            let valStr = cell.w !== undefined ? String(cell.w) : (cell.v instanceof Date ? `${cell.v.getFullYear()}${String(cell.v.getMonth()+1).padStart(2,'0')}${String(cell.v.getDate()).padStart(2,'0')}` : String(cell.v));
-                            valStr = valStr.trim().replace(/[\\/:\*\?"<>\|]/g, '-').replace(/,/g, '').replace(/[\r\n]+/g, ' ');
-                            if (valStr !== '') rowData.push(valStr);
+                            if (cell) rowData.push(String(cell.w || cell.v).trim());
                         }
-                        if (rowData.length > 0) validDataRows.push(rowData);
+                        if (rowData.length > 0) dataRows.push(rowData.join('_'));
                     }
-                    if (validDataRows.length === 0) return alert("無有效資料");
-                    setFiles(prev => prev.map((f, i) => i < validDataRows.length ? {...f, newBaseName: validDataRows[i].join('_')} : f));
+                    setFiles(prev => prev.map((f, i) => i < dataRows.length ? {...f, newBaseName: dataRows[i]} : f));
                 };
                 reader.readAsArrayBuffer(file);
             };
 
             const downloadAll = async () => {
-                setIsZipping(true);
                 const zip = new JSZip();
                 files.filter(f => f.selected).forEach(f => zip.file(`${f.newBaseName}.pdf`, f.file));
                 const content = await zip.generateAsync({type: 'blob'});
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(content);
-                a.download = 'PDFs.zip';
+                a.download = 'Renamed_PDFs.zip';
                 a.click();
-                setIsZipping(false);
             };
 
             return (
-                <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    <div className="lg:col-span-4 space-y-6">
-                        <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                            <h2 className="font-bold mb-4 flex items-center gap-2"><UploadCloud size={20}/> 新增檔案</h2>
-                            <div onClick={() => fileInputRef.current.click()} className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer border-slate-300 hover:border-indigo-400">
-                                <input type="file" multiple accept="application/pdf" className="hidden" ref={fileInputRef} onChange={(e) => handleFiles(e.target.files)} />
-                                <p>點擊上傳 PDF</p>
+                <div className="max-w-6xl mx-auto p-6 space-y-6">
+                    <h1 className="text-2xl font-bold">PDF 批次改名工具</h1>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="space-y-4">
+                            <button onClick={() => fileInputRef.current.click()} className="w-full bg-blue-600 text-white p-4 rounded-lg">上傳 PDF</button>
+                            <input type="file" multiple className="hidden" ref={fileInputRef} onChange={(e) => handleFiles(e.target.files)} />
+                            <div className="bg-white p-4 rounded shadow border">
+                                <label>Excel 起始行:</label>
+                                <input type="number" value={excelStartRow} onChange={e=>setExcelStartRow(parseInt(e.target.value))} className="w-full border p-2 mb-2"/>
+                                <button onClick={() => excelInputRef.current.click()} className="w-full bg-green-600 text-white p-2 rounded">匯入 Excel</button>
+                                <input type="file" className="hidden" ref={excelInputRef} onChange={handleExcelUpload} />
                             </div>
-                        </section>
-                        <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                            <h2 className="font-bold mb-4 flex items-center gap-2"><Table size={20}/> Excel 匯入</h2>
-                            <input type="number" value={excelStartRow} onChange={e=>setExcelStartRow(parseInt(e.target.value))} className="w-full mb-2 p-2 border rounded" />
-                            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" ref={excelInputRef} onChange={handleExcelUpload} />
-                            <button onClick={() => excelInputRef.current.click()} className="w-full bg-emerald-600 text-white p-2 rounded">上傳 Excel</button>
-                        </section>
-                    </div>
-                    <div className="lg:col-span-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <h2 className="font-bold mb-4">檔案清單 ({files.length})</h2>
-                        <div className="space-y-2">
+                        </div>
+                        <div className="lg:col-span-2 bg-white p-6 rounded shadow border">
                             {files.map((f, i) => (
-                                <div key={f.id} draggable onDragStart={() => setDraggedIndex(i)} onDragOver={(e) => {e.preventDefault(); setDragOverIndex(i)}} onDrop={() => {
-                                    const newFiles = [...files];
-                                    const dragged = newFiles.splice(draggedIndex, 1)[0];
-                                    newFiles.splice(i, 0, dragged);
-                                    setFiles(newFiles);
-                                    setDraggedIndex(null);
-                                }} className="flex items-center gap-2 p-3 border rounded-lg bg-slate-50">
-                                    <GripVertical size={20} className="text-slate-400 cursor-grab"/>
+                                <div key={f.id} className="flex items-center gap-2 mb-2 p-2 bg-slate-50 border rounded">
                                     <input type="checkbox" checked={f.selected} onChange={() => setFiles(prev => prev.map(item => item.id === f.id ? {...item, selected: !item.selected} : item))} />
                                     <input value={f.newBaseName} onChange={(e) => setFiles(prev => prev.map(item => item.id === f.id ? {...item, newBaseName: e.target.value} : item))} className="flex-1 p-1 border rounded"/>
                                 </div>
                             ))}
+                            <button onClick={downloadAll} className="w-full mt-4 bg-black text-white py-3 rounded font-bold">打包下載</button>
                         </div>
-                        <button onClick={downloadAll} className="w-full mt-6 bg-black text-white py-3 rounded-xl font-bold">打包下載</button>
                     </div>
                 </div>
             );
